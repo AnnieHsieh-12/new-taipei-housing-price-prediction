@@ -1,64 +1,48 @@
 # New Taipei City Housing Price Prediction
 
-An independent, reproducible machine-learning project for estimating real-estate unit prices in New Taipei City. The repository provides a leakage-aware workflow that combines R-based data preparation with Python-based model training and evaluation.
+This project estimates residential transaction prices in New Taipei City from property, transaction, location, transport, and area-level demographic variables. R handles data preparation and feature selection; Python trains and evaluates Elastic Net, Ridge, Random Forest, and XGBoost models. The repository provides a reproducible analysis workflow, but not a fully locked, bit-for-bit reproducible software environment.
 
-## Overview
+## Project overview
 
-The project studies whether property characteristics, transaction attributes, geographic variables, transportation proximity, and area-level demographic indicators can explain variation in transaction unit prices.
+- **Target:** `log1p(單價元平方公尺)`, the natural logarithm of unit price in New Taiwan dollars per square meter after adding one
+- **Original data:** 14,092 transaction records and 199 variables
+- **Analysis sample:** 14,087 records with a valid positive target
+- **Split:** 70% training, 15% validation, and 15% test
+- **Feature selection:** Regularized Random Forest, fitted on the training split
 
-- **Target:** `log1p(單價元平方公尺)` — the natural logarithm of unit price in New Taiwan dollars per square meter after adding one.
-- **Original data:** 14,092 transaction records and 199 variables.
-- **Analysis sample:** 14,087 records with a valid positive target value.
-- **Split:** 70% training, 15% validation, and 15% test data.
-- **Models:** Elastic Net, Ridge, Random Forest, and XGBoost.
-- **Feature selection:** Regularized Random Forest, fitted on training data only.
-- **Reproducibility:** Configurable random seed, automated commands, and tests for core parsing and evaluation functions.
+## Data source and availability
 
-## Data availability and disclosure
+The row-level dataset is not included because it contains address-level locations, exact coordinates, transaction identifiers, and other transaction-level information. Raw data, processed records, and model-ready splits are excluded by `.gitignore`; the repository contains code, documentation, and aggregate results only.
 
-The transaction-level dataset is intentionally excluded from this repository. It contains address-level locations, exact coordinates, transaction identifiers, and other row-level fields that cannot be redistributed through this project.
+The repository does not currently document the original public or licensed source, the transaction coverage period, or whether all 199 variables came from one dataset or were assembled from several sources. These details should be added once they can be confirmed from the original data documentation.
 
-The repository includes only source code, documentation, and aggregate model outputs. Raw data, processed row-level data, and model-ready splits are protected by `.gitignore`.
+Users with access to the same data can place the UTF-8 CSV at `data/raw_UTF-8.csv` or pass another local path to the pipeline. The preparation code expects a target column named `單價元平方公尺` and uses optional predictors when they are available.
 
-Users with authorized access to the dataset may place it at `data/raw_UTF-8.csv` or provide another local path when running the pipeline. The Apache License 2.0 for this repository does **not** grant any rights to the excluded dataset.
+## Method
 
-## Methodology
+### Feature engineering
 
-### 1. Deterministic feature construction
+The R pipeline converts the mixed-format source fields into numeric predictors. It parses common floor descriptions, including underground and 十-based forms; extracts land, building, and parking counts; derives transaction date and building-age features; encodes selected binary housing attributes; and retains available property, geographic, proximity, and demographic variables.
 
-The R preparation module converts the original mixed-format records into numeric predictors. Its transformations include:
+The source column names `thsr`, `mrt`, `mall`, and `lpg` appear among the selected features, but their definitions and units are not documented in the repository. They should not be interpreted more specifically until the original data dictionary is available.
 
-- parsing Chinese floor descriptions and underground levels;
-- extracting land, building, and parking counts from transaction strings;
-- deriving transaction year, month, building completion year, and building age;
-- encoding selected binary housing attributes; and
-- retaining available property, geographic, proximity, and demographic variables.
+### Train/validation/test preprocessing
 
-### 2. Leakage-aware data preparation
+Records are split before data-dependent preprocessing. Median imputation, interquartile-range outlier limits, grouped demographic PCA, and Regularized Random Forest feature selection are fitted on the training data and then applied unchanged to validation and test data. The target is not imputed, capped, or used as a predictor.
 
-Records are divided into training, validation, and test sets before any data-dependent transformation is fitted. The following operations learn their parameters exclusively from the training set:
+### Model training and evaluation
 
-- median imputation;
-- interquartile-range outlier limits;
-- principal component analysis for grouped demographic variables; and
-- Regularized Random Forest feature selection.
+All four models use the same 20 selected predictors:
 
-The fitted transformations are then applied unchanged to the validation and test sets. Target values are never imputed, capped, or included as predictors.
+- Elastic Net and Ridge tune their regularization parameters with five-fold cross-validation on the training split.
+- Random Forest uses 800 trees and a fixed random seed.
+- XGBoost uses the validation split for early stopping.
 
-### 3. Model training and evaluation
+The test split is used for the final model comparison.
 
-The modeling module trains four regressors on the same 20 selected predictors:
+## Results
 
-- **Elastic Net:** cross-validated regularization and mixing parameters;
-- **Ridge:** cross-validated L2 regularization;
-- **Random Forest:** 800 trees with a fixed random seed; and
-- **XGBoost:** validation-based early stopping with fixed tree and sampling parameters.
-
-Validation data are used for XGBoost early stopping. Test data are reserved for the final model comparison.
-
-## Verified results
-
-The complete pipeline was executed twice with seed 42 and reproduced the same splits, selected features, and aggregate results.
+The complete pipeline was executed twice with seed 42 and produced the same splits, selected features, and aggregate results.
 
 | Model | Test log-RMSE | Test R² | RMSE (NTD/m²) | MAE (NTD/m²) | Test MAPE |
 |---|---:|---:|---:|---:|---:|
@@ -67,116 +51,72 @@ The complete pipeline was executed twice with seed 42 and reproduced the same sp
 | Elastic Net | 0.276 | 0.562 | 31,312 | 21,534 | 21.2% |
 | Ridge | 0.276 | 0.562 | 31,313 | 21,535 | 21.2% |
 
-Full-precision validation and test results are available in [`results/model_scores.csv`](results/model_scores.csv). Aggregate Random Forest and XGBoost importance values are available in [`results/feature_importance.csv`](results/feature_importance.csv).
-
-### Metric interpretation
-
-- **Log-RMSE:** root mean squared error evaluated on `log1p` unit price; lower is better.
-- **R²:** proportion of variance explained on the transformed target scale; higher is better.
-- **RMSE and MAE:** prediction error after converting estimates back to New Taiwan dollars per square meter.
-- **MAPE:** mean absolute percentage error on the original unit-price scale.
-
-These results measure interpolation performance under one reproducible random split. They do not establish future-year, out-of-region, causal, or production performance.
+Full-precision validation and test metrics are in [`results/model_scores.csv`](results/model_scores.csv). Random Forest and XGBoost feature-importance values are in [`results/feature_importance.csv`](results/feature_importance.csv). Log-RMSE and R² are calculated on the transformed target; RMSE, MAE, and MAPE are calculated after converting predictions back to NTD per square meter.
 
 ## Repository structure
 
 ```text
 .
-├── R/
-│   └── pipeline.R              # Feature construction and training-only preprocessing
-├── data/
-│   └── README.md               # Private-data placement and disclosure guidance
-├── python/
-│   └── train_models.py         # Model training and aggregate evaluation
+├── R/pipeline.R                  # Feature construction and preprocessing
+├── data/README.md                # Local dataset placement
+├── python/train_models.py        # Model training and evaluation
 ├── results/
-│   ├── feature_importance.csv  # Aggregate feature-importance output
-│   └── model_scores.csv        # Full-precision validation and test metrics
-├── scripts/
-│   └── prepare_data.R          # Command-line adapter for the R pipeline
+│   ├── feature_importance.csv
+│   └── model_scores.csv
+├── scripts/prepare_data.R        # R command-line entry point
 ├── tests/
-│   ├── test_pipeline.R         # Parsing and split checks
-│   └── test_train_models.py    # Metric-function checks
-├── LICENSE                     # Apache License 2.0
-├── Makefile                    # Reproducible setup, run, test, and clean commands
-└── requirements.txt            # Python dependencies
+│   ├── test_pipeline.R
+│   └── test_train_models.py
+├── Makefile
+└── requirements.txt
 ```
 
-## Reproducing the analysis
+## Running the analysis
 
-### Prerequisites
+Requirements:
 
-- R 4.4 or later
+- R 4.4 or later with `dplyr`, `lubridate`, `randomForest`, `readr`, `RRF`, `stringr`, and `tibble`
 - Python 3.10 or later
-- An authorized local copy of the UTF-8 transaction dataset
+- A local copy of the transaction dataset
 
-Install the required R packages once:
-
-```r
-install.packages(c(
-  "dplyr",
-  "lubridate",
-  "randomForest",
-  "readr",
-  "RRF",
-  "stringr",
-  "tibble"
-))
-```
-
-Create the isolated Python environment:
+Create the Python virtual environment:
 
 ```bash
 make setup
 ```
 
-Place the authorized dataset at `data/raw_UTF-8.csv`, then run the complete workflow:
+Place the data at `data/raw_UTF-8.csv`, then run:
 
 ```bash
 make run
 ```
 
-To use a dataset stored elsewhere or change the seed:
+To use another path or seed:
 
 ```bash
-make run DATA="/absolute/path/to/private-data.csv" SEED=42
+make run DATA="/absolute/path/to/data.csv" SEED=42
 ```
 
-Run the checks independently:
+Run the automated checks with:
 
 ```bash
 make test
 ```
 
-### Generated outputs
-
-The preparation stage writes ignored row-level artifacts to `data/processed/`, including fixed train, validation, and test splits. The modeling stage writes aggregate metrics and feature importance to `results/`.
-
-## Reproducibility safeguards
-
-- No user-specific absolute paths are stored in the source code.
-- Raw and processed row-level data are excluded from Git.
-- A single command runs the complete R-to-Python workflow.
-- The seed is configurable and recorded with the split summary.
-- Preprocessing and feature selection are fitted on training data only.
-- The same prepared splits are shared by all models.
-- Core parsing and metric functions have automated checks.
+The checks cover floor and completion-year parsing, base feature construction, split reproducibility, training-derived numeric preprocessing, prediction metrics, and prepared-split validation. They do not constitute full end-to-end test coverage. The Python packages use bounded version ranges and the R packages are not locked, so dependency resolution may vary over time.
 
 ## Limitations
 
-1. **Random holdout:** Transactions from similar areas or periods may appear in multiple splits. A temporal or grouped spatial holdout is needed to assess stronger forms of generalization.
-2. **Private data dependency:** Other users cannot reproduce the numerical results without authorized access to the same dataset.
-3. **Observational analysis:** Feature importance describes predictive association, not causal effects on housing prices.
-4. **Scope:** The results apply only to the observed New Taipei City records and evaluated target definition.
-5. **Deployment:** The project does not include a serving interface, monitoring system, or external validation and should not be described as production-ready.
+1. **Random holdout:** Transactions from similar areas or periods may appear in different splits. Temporal or grouped spatial validation is needed to measure future-period or new-area generalization.
+2. **Data access:** Reproducing the reported values requires access to the same row-level dataset.
+3. **Interpretation:** Feature importance indicates predictive association, not a causal effect on housing prices.
 
 ## Author
 
-**Pei-Ju Hsieh**
-
-Independent project covering data preparation, feature engineering, leakage-aware evaluation, model comparison, testing, and repository implementation.
+Pei-Ju Hsieh
 
 ## License
 
 Copyright 2026 Pei-Ju Hsieh.
 
-The source code, documentation, and included aggregate outputs in this repository are licensed under the [Apache License 2.0](LICENSE). The excluded transaction-level dataset is not covered by this license and may not be redistributed through this project.
+The code, documentation, and aggregate outputs included in this repository are licensed under the [Apache License 2.0](LICENSE). The row-level dataset is not part of this repository.

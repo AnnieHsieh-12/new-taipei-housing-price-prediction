@@ -1,6 +1,6 @@
-# Private dataset placement
+# Local dataset placement
 
-The transaction-level dataset used by this project is not distributed in this repository. It contains address-level property locations, exact coordinates, transaction identifiers, and other row-level fields that cannot be republished through this project.
+The transaction-level dataset used by this project is not included in this repository. It contains address-level property locations, exact coordinates, transaction identifiers, and other row-level information.
 
 To run the project locally, place the private UTF-8 CSV at:
 
@@ -12,4 +12,4 @@ The preparation module expects the target column `單價元平方公尺`. It use
 
 All files under `data/`, except this documentation file, are ignored by Git.
 
-The repository's Apache License 2.0 applies to the source code, documentation, and included aggregate outputs. It does not grant permission to use, copy, or redistribute the excluded dataset.
+The repository's Apache License 2.0 applies to the code, documentation, and aggregate outputs included in the repository. The row-level dataset is not included.

@@ -27,4 +27,13 @@ stopifnot(nrow(splits$train) == 7)
 stopifnot(nrow(splits$valid) == 1)
 stopifnot(nrow(splits$test) == 2)
 
+repeated_splits <- split_rows(features, seed = 42)
+stopifnot(identical(splits, repeated_splits))
+
+preprocessing_train <- tibble::tibble(example = c(1, 2, 3))
+preprocessing_valid <- tibble::tibble(example = c(NA_real_, 100))
+preprocessing_stats <- fit_numeric_preprocessor(preprocessing_train, "example")
+processed_valid <- apply_numeric_preprocessor(preprocessing_valid, preprocessing_stats)
+stopifnot(identical(processed_valid$example, c(2, 4)))
+
 cat("R pipeline tests passed.\n")
